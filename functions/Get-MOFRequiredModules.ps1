@@ -1,16 +1,18 @@
 ﻿function Get-MOFRequiredModules {
     [CmdletBinding()]
-    Param($mofFile)
+    Param(
+        [ValidateNotNullOrEmpty()]
+        [string]$MofFile= 'localhost.mof')
 
     $DSCResources = Get-DscResource
-    $DScModuleArray = @()
+    $DSCModuleArray = @()
     $ModulesToCopy = @()
 
-    foreach ($Resource in $DscResources)
+    foreach ($Resource in $DSCResources)
     {
         if (!(($Resource.ModuleName -eq "PSDesiredStateConfiguration") -or ($Resource.ImplementedAs -eq 'Binary')))
         {
-            if ($DScModuleArray -notcontains $Resource.ModuleName)
+            if ($DSCModuleArray -notcontains $Resource.ModuleName)
             {
                 $DSCModuleArray += $Resource.ModuleName
             }
@@ -19,10 +21,9 @@
 
     #Scan the mof file for sections ModuleName
     $requiredModulesinMof = @()
-    Switch -Regex (Get-Content $mofFile)
+    Switch -Regex (Get-Content $MofFile)
     {
         "ModuleName" {$requiredModulesInMof += $_.Split("`"")[1]}
-        #Default {Write-Output $_}
     }
 
     foreach ($requiredModule in $requiredModulesInMof)
@@ -31,11 +32,9 @@
         {
             $ModulesToCopy += [pscustomobject]@{
                         ModuleName = $requiredModule
-                        #ModulePath = $DSCResources | Where ModuleName -eq $requiredModule | Select -ExpandProperty ParentPath
                         }
         }
     }
-
     return $ModulesToCopy
 
 }
@@ -48,13 +47,10 @@ function Copy-DSCResource
     foreach ($Module in $ModulestoCopy)
     {
         $Source = 'C:\Program Files\WindowsPowerShell\Modules\'+$Module.ModuleName
-        Write-Verbose "Module location: $Source"
         $Destination = 'C:\Program Files\WindowsPowerShell\Modules\'
         try
         {
-            Write-Verbose "Copying"
             Copy-Item -ToSession $PSSession -Path $Source -Destination $Destination -Recurse -Force -ErrorAction STOP -Verbose
-            Write-Verbose "Copied"
         }
         catch
         {
